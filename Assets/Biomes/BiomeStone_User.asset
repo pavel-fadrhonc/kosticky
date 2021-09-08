@@ -9,11 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9a58bec5b3b44431944aac6dac6df683, type: 3}
-  m_Name: GameConstans
+  m_Script: {fileID: 11500000, guid: 385a606c58694441986f2425c92267eb, type: 3}
+  m_Name: BiomeStone_User
   m_EditorClassIdentifier: 
-  _chunkSize: 5
-  _worldSize: {x: 20, y: 50, z: 20}
-  _voxelSize: 0.5
-  _noiseScale: {x: 5, y: 1, z: 5}
-  _voxelMaterial: {fileID: 2100000, guid: 0f4885113c5bcc14da2590ebd7f70372, type: 2}
+  _startsFromHeightNorm: 0
+  _uvs: {x: 0, y: 0}
+  _uiSprite: {fileID: 0}

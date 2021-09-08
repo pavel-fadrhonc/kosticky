@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a58bec5b3b44431944aac6dac6df683, type: 3}
+  m_Name: GameSettings
+  m_EditorClassIdentifier: 
+  _generatedBiomes:
+  - {fileID: 11400000, guid: 08055d31affce4241b8be35f93436ec7, type: 2}
+  - {fileID: 11400000, guid: e648b5204158e1e45a9f1c6361f3c684, type: 2}
+  - {fileID: 11400000, guid: ba5dcadc2ed41f847b54977a16477670, type: 2}
+  - {fileID: 11400000, guid: 8c164b4783669d84482e30e1d2232e55, type: 2}
+  _userBiomes:
+  - {fileID: 11400000, guid: a0f1c65968ca96d4dbc85ef42b8e6e76, type: 2}
+  - {fileID: 11400000, guid: e648b5204158e1e45a9f1c6361f3c684, type: 2}
+  - {fileID: 11400000, guid: 28c53d04dd167524790961aaaf82bf77, type: 2}
+  - {fileID: 11400000, guid: f6e9bcb8ff9fa574e94ef7615de41fbe, type: 2}
+  _biomeUVSize: 0.33333334
+  _worldHeight: 20
+  _chunkSize: 5
+  sectorSize: 50
+  _voxelSize: 0.5
+  _noiseScale: {x: 5, y: 1, z: 5}
+  _voxelMaterial: {fileID: 2100000, guid: 0f4885113c5bcc14da2590ebd7f70372, type: 2}
+  _raycastPrecisionIterationCount: 3

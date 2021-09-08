@@ -8,48 +8,65 @@ namespace DefaultNamespace
         private Chunk[,] _chunks;
 
         public Chunk[,] Chunks => _chunks;
+        
+        public Vector3 WorldPos { get; private set; }
+        
+        public Bounds Bounds { get; private set; }
 
-        public void Generate(Vector2 noisePos, Vector2 worldOffset)
+        public string SectorInfo
         {
-            var gameCon = Locator.Instance.GameConstants;
-            var worldSize = gameCon.WorldSize;
+            set
+            {
+                for (int chunkX = 0; chunkX < Chunks.GetLength(0); chunkX++)
+                {
+                    for (int chunkZ = 0; chunkZ < Chunks.GetLength(1); chunkZ++)
+                    {
+                        var chunk = Chunks[chunkX, chunkZ];
+
+                        chunk.SectorInfo = value;
+                    }
+                }           
+            }
+        }
+
+        public void Generate(Vector3 worldOffset, Vector2 noiseOffset)
+        {
+            var gameCon = Locator.Instance.GameSettings;
+            var sectorSize = gameCon.SectorSize;
             var chunkSize = gameCon.ChunkSize;
             var voxelSize = gameCon.VoxelSize;
             var noiseScale = gameCon.NoiseScale;
-            var voxelMaterial = gameCon.VoxelMaterial;
+            var worldHeight = gameCon.WorldHeight;
 
-            var chunkCountX = Mathf.CeilToInt(worldSize.x / (float) chunkSize);
-            var chunkCountZ = Mathf.CeilToInt(worldSize.z / (float) chunkSize);
+            var chunkCountX = Mathf.CeilToInt(sectorSize / (float) chunkSize);
+            var chunkCountZ = Mathf.CeilToInt(sectorSize / (float) chunkSize);
 
             _chunks = new Chunk[chunkCountX, chunkCountZ];
+            WorldPos = worldOffset;
             
             // generate chunks
-            for (int x = 0; x < worldSize.x; x++)
+            for (int x = 0; x < sectorSize; x++)
             {
-                for (int z = 0; z < worldSize.z; z++)
+                for (int z = 0; z < sectorSize; z++)
                 {
                     var xPos = x * voxelSize + worldOffset.x;
-                    var zPos = z * voxelSize + worldOffset.y;
+                    var zPos = z * voxelSize + worldOffset.z;
                     
-                    var heightNorm = Mathf.PerlinNoise((xPos / worldSize.x) * noiseScale.x, (zPos / worldSize.z) * noiseScale.z);
+                    var heightNorm = Mathf.PerlinNoise((xPos / sectorSize) * noiseScale.x + noiseOffset.x, 
+                        (zPos / sectorSize) * noiseScale.z + noiseOffset.y);
                     
-                    var yIndex = (int) Mathf.Floor(heightNorm * noiseScale.y * worldSize.y);
-
-                    //voxels[x, z] = yIndex;
-
-                    var yPos = yIndex * voxelSize;
-
+                    var yIndex = (int) Mathf.Floor(heightNorm * noiseScale.y * worldHeight);
+                    
                     int chunkIdxX = Mathf.FloorToInt(x / (float) chunkSize);
                     int chunkIdxZ = Mathf.FloorToInt(z / (float) chunkSize);
 
                     if (Chunks[chunkIdxX, chunkIdxZ] == null)
                     {
                         var chunkWSPosX = chunkIdxX * chunkSize * voxelSize + worldOffset.x;
-                        var chunkWSPosZ = chunkIdxZ * chunkSize * voxelSize + worldOffset.y;
+                        var chunkWSPosZ = chunkIdxZ * chunkSize * voxelSize + worldOffset.z;
                         
                         Chunks[chunkIdxX, chunkIdxZ] = new Chunk(new int[chunkSize,chunkSize], 
-                            new Vector2(chunkWSPosX, chunkWSPosZ),
-                            worldOffset);
+                            new Vector3(chunkWSPosX, 0, chunkWSPosZ));
                     }
 
                     var chunk = Chunks[chunkIdxX, chunkIdxZ];
@@ -57,7 +74,7 @@ namespace DefaultNamespace
                     var chunkXPos = x - (chunkIdxX * chunkSize);
                     var chunkZPos = z - (chunkIdxZ * chunkSize);
 
-                    chunk.voxels[chunkXPos, chunkZPos] = yIndex;
+                    chunk.voxelHeights[chunkXPos, chunkZPos] = yIndex;
                 }
             }  
             
@@ -88,8 +105,9 @@ namespace DefaultNamespace
                     chunk.SetNeighbours(chunkNeighbours);
                 }
             }
+
             
-            
+            // generate chunk geometry
             for (int chunkX = 0; chunkX < Chunks.GetLength(0); chunkX++)
             {
                 for (int chunkZ = 0; chunkZ < Chunks.GetLength(1); chunkZ++)
@@ -98,87 +116,15 @@ namespace DefaultNamespace
                     
                     chunk.Generate();
                     
-                    // var chunkBaseIdxX = chunkSize * chunkX;
-                    // var chunkBaseIdxZ = chunkSize * chunkZ;
-                    //
-                    // // build chunk mesh
-                    // // iterate from yIndexBottom to yIndexTop for every x,z in chunk
-                    // // find neighbour cells
-                    // // for y below or equal lowest neighbour y do not generate anything
-                    // // if neighbour y < voxel y, then generate appropriate side and add it to voxel mesh
-                    //
-                    // var chunkWSPosX = chunkX * chunkSize * voxelSize + worldOffset.x;
-                    // var chunkWSPosZ = chunkZ * chunkSize * voxelSize + worldOffset.y;
-                    // var chunkWSPosY = 0f;
-                    //
-                    // var chunkGo = new GameObject($"Chunk:({chunkX}, {chunkZ}))");
-                    // chunkGo.transform.position = new Vector3(chunkWSPosX, chunkWSPosY, chunkWSPosZ);
-                    // var chunkMeshRenderer = chunkGo.AddComponent<MeshRenderer>();
-                    // var chunkMeshFilter = chunkGo.AddComponent<MeshFilter>();
-                    //
-                    // var chunkMesh = new Mesh();
-                    //
-                    // var vertices = new List<Vector3>();
-                    // var voxelUvs = new List<Vector2>() ;
-                    // var triangles = new List<int>();
-                    //
-                    // for (int voxelX = 0; voxelX < chunkSize; voxelX++)
-                    // {
-                    //     for (int voxelZ = 0; voxelZ < chunkSize; voxelZ++)
-                    //     {
-                    //         var absVoxelX = chunkBaseIdxX + voxelX;
-                    //         var absVoxelZ = chunkBaseIdxZ + voxelZ;
-                    //         var yval = chunk.voxels[voxelX, voxelZ];
-                    //
-                    //         // draw voxel
-                    //         var xPos = absVoxelX * voxelSize;
-                    //         var zPos = absVoxelZ * voxelSize;
-                    //
-                    //         var yPos = yval * voxelSize;
-                    //
-                    //         for (int yIndex = 0; yIndex < yval; yIndex++)
-                    //         {
-                    //             // if at least one neighbour voxel is missing, we are drawing this
-                    //             
-                    //             
-                    //         }
-                    //
-                    //         // build voxel mesh
-                    //         for (int i = 0; i < 6; i++)
-                    //         {
-                    //             for (int j = 0; j < 6; j++)
-                    //             {
-                    //                 var vertexIndex = VoxelConsts.faces[i, j];
-                    //                 var vertexPosLocal = VoxelConsts.vertexPos[vertexIndex] * voxelSize;
-                    //
-                    //                 var chunkVoxelXPos = voxelX * voxelSize;
-                    //                 var chunkVoxelZPos = voxelZ * voxelSize;
-                    //
-                    //                 vertices.Add(new Vector3(
-                    //                     chunkVoxelXPos + vertexPosLocal.x,
-                    //                     yPos + vertexPosLocal.y,
-                    //                     chunkVoxelZPos + vertexPosLocal.z));
-                    //                 
-                    //                 //triangles[i * 6 + j] = vertices.Count - 1;
-                    //                 
-                    //                 triangles.Add(vertices.Count - 1);
-                    //                 voxelUvs.Add(VoxelConsts.uvs[j]);
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                    //
-                    // chunkMesh.SetVertices(vertices);
-                    // chunkMesh.SetTriangles(triangles, 0);
-                    // chunkMesh.SetUVs(0, voxelUvs);
-                    //
-                    // chunkMesh.RecalculateNormals();
-                    //
-                    // chunkMeshFilter.mesh = chunkMesh;
-                    // chunkMeshRenderer.material = voxelMaterial;                                 
-                    
+                    Bounds.Encapsulate(chunk.Bounds);
                 }
-            }            
+            } 
+            
+            var sectorSizeWS = sectorSize * voxelSize;
+            Bounds = new Bounds(WorldPos 
+                                + sectorSizeWS * 0.5f * Vector3.right 
+                                + sectorSizeWS * 0.5f * Vector3.forward, 
+                new Vector3(sectorSizeWS, worldHeight, sectorSizeWS));
         }
     }
 }
