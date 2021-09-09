@@ -33,6 +33,7 @@ namespace DefaultNamespace
 
         private float _chunkSizeWS; // how large is chunk in meters
         private float _sectorSizeWS;
+        private float _worldHeightWS;
 
         private UserChanges _userChanges = new UserChanges();
 
@@ -50,6 +51,7 @@ namespace DefaultNamespace
 
             _chunkSizeWS = _chunkSize * _voxelSize;
             _sectorSizeWS = _sectorSize * _voxelSize;
+            _worldHeightWS = gameCon.WorldHeight * _voxelSize;
             _sectorGenerateTresholdWS = gameCon.SectorPosGenerateTreshold * _sectorSizeWS;
 
             _noiseOffset = new Vector2(Random.Range(_noiseOffsetSpan.x, _noiseOffsetSpan.y),
@@ -301,9 +303,14 @@ namespace DefaultNamespace
 
         public VoxelInfo GetVoxelAtWorldPos(Vector3 worldPos)
         {
-            Sector sector;
-            var chunk = GetChunkAtWorldPos(worldPos, out sector);
-            return chunk.GetVoxelAtWorldPos(worldPos);
+            if (worldPos.y > 0 && worldPos.y < _worldHeightWS)
+            {
+                Sector sector;
+                var chunk = GetChunkAtWorldPos(worldPos, out sector);
+                return chunk.GetVoxelAtWorldPos(worldPos);
+            }
+
+            return null;
         }
 
         public float GetVoxelYIndexAtWorldPos(Vector3 worldPos)

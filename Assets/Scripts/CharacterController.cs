@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using DefaultNamespace.Utils;
+using Unity.Collections;
 using UnityEngine;
 
 namespace DefaultNamespace
@@ -108,6 +109,8 @@ namespace DefaultNamespace
         private float _standingVoxelTopY;
         private VoxelInfo _standingVoxelInfo;
 
+        private float _originalLookLocalY;
+
         // references
         private WorldManager _worldManager;
         private WireCube _buildCube;
@@ -131,6 +134,8 @@ namespace DefaultNamespace
             _destroyCube = Locator.Instance.DestroyCube;
 
             _userBiomes = Locator.Instance.GameSettings.UserBiomes;
+
+            _originalLookLocalY = lookParent.transform.localPosition.y;
             
             ModeChangedEvent?.Invoke(_mode);
             ActiveBiomeIdxChangedEvent?.Invoke(_activeBiomeIdx);
@@ -380,13 +385,24 @@ namespace DefaultNamespace
                     }                    
                 }
             }
+            
+            // duck
+            VoxelInfo voxelInBody = null;
+            if (lookParent.transform.position.y < _worldHeightWS)
+            {
+                lookParent.transform.position = transform.position + Vector3.up * (_voxelSize * 0.5f);
+                
+                while (voxelInBody == null && lookParent.transform.localPosition.y < _originalLookLocalY)
+                {
+                    lookParent.transform.localPosition += Vector3.up * (0.5f * _voxelSize);
+                    voxelInBody = _worldManager.GetVoxelAtWorldPos(lookParent.transform.position);
+                }
 
-            // check for the head
-            // VoxelInfo voxelAtHead = null;
-            // if (lookParent.transform.position.y < _worldHeightWS)
-            //     voxelAtHead = _worldManager.GetVoxelAtWorldPos(lookParent.transform.position);
-            // if (voxelAtHead != null)
-            //     movePosition = movePosition.WithY(originalPosition.y);
+                if (lookParent.transform.localPosition.y > _originalLookLocalY)
+                    lookParent.transform.localPosition = lookParent.transform.localPosition.WithY(_originalLookLocalY);
+                else if (voxelInBody != null)
+                    lookParent.transform.localPosition -= Vector3.up * (0.5f * _voxelSize);
+            }
 
             return movePosition;
         }
@@ -404,6 +420,11 @@ namespace DefaultNamespace
                     _standingVoxelTopY = 0f;
                     _grounded = false;
                 }
+            }
+            else
+            {
+                _standingVoxelTopY = 0f;
+                _grounded = false;
             }
         }
 
