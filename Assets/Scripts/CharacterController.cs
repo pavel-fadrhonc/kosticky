@@ -104,7 +104,6 @@ namespace DefaultNamespace
         private IReadOnlyList<Biome> _userBiomes;
         
         private bool _grounded;
-        //private float _currentVoxelHeight;
         private VoxelHitInfo _voxelHitInfo;
         private float _standingVoxelTopY;
         private VoxelInfo _standingVoxelInfo;
@@ -283,8 +282,6 @@ namespace DefaultNamespace
             #region AIM
 
             var aimRay = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0.5f));
-
-            //var rayOrigin = aimRay.origin - aimRay.direction * 10;
             
             Debug.DrawRay(aimRay.origin, aimRay.direction * 10);
 
@@ -409,7 +406,6 @@ namespace DefaultNamespace
         
         private void RefreshStandingVoxel()
         {
-            //_currentVoxelHeight = _worldManager.GeVoxelWSHeightAtWorldPos(transform.position);
             if (transform.position.y < _worldHeightWS)
             {
                 _standingVoxelInfo = GetStandingVoxelInfo(transform.position);
