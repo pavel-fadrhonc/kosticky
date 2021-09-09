@@ -195,13 +195,13 @@ namespace DefaultNamespace
                 if (charWP.z < _middleSectorInCluster.WorldPos.z - _sectorGenerateTresholdWS)
                 { // back
                     ForEachClusterIn(EClusterPartType.Row, -_sectorSpan - 1, (x, y) => GenerateNewSector(new Vector2Int(x, y)));
-                    frontBackChangesAction = () => { ForEachClusterIn(EClusterPartType.Row, -_sectorSpan - 1, (x, y) => LoadChangesForSector(new Vector2Int(x, y))); };
+                    frontBackChangesAction = () => { ForEachClusterIn(EClusterPartType.Row, -_sectorSpan, (x, y) => LoadChangesForSector(new Vector2Int(x, y))); };
                     ForEachClusterIn(EClusterPartType.Row, _sectorSpan, (x, y) => DisposeSectorAtIndex(new Vector2Int(x, y)));
                 }
                 else if (charWP.z >= _middleSectorInCluster.WorldPos.z + _sectorSizeWS + _sectorGenerateTresholdWS)
                 { // front
                     ForEachClusterIn(EClusterPartType.Row, _sectorSpan + 1, (x, y) => GenerateNewSector(new Vector2Int(x, y)));
-                    frontBackChangesAction = () => { ForEachClusterIn(EClusterPartType.Row, _sectorSpan + 1, (x, y) => LoadChangesForSector(new Vector2Int(x, y))); };
+                    frontBackChangesAction = () => { ForEachClusterIn(EClusterPartType.Row, _sectorSpan, (x, y) => LoadChangesForSector(new Vector2Int(x, y))); };
                     ForEachClusterIn(EClusterPartType.Row, -_sectorSpan, (x, y) => DisposeSectorAtIndex(new Vector2Int(x, y)));
                 }
                  
