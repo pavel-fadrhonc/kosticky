@@ -29,4 +29,7 @@ MonoBehaviour:
   _voxelSize: 0.5
   _noiseScale: {x: 5, y: 1, z: 5}
   _voxelMaterial: {fileID: 2100000, guid: 0f4885113c5bcc14da2590ebd7f70372, type: 2}
+  _sectorPosGenerateTreshold: 0
   _raycastPrecisionIterationCount: 3
+  _saveGameKey: 107
+  _loadGameKey: 108

@@ -1,9 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace DefaultNamespace
 {
-    public class Sector
+    public class SectorWithChanges
+    {
+        public Sector sector;
+        public List<UserChanges.ChangeAdd> addChanged = new List<UserChanges.ChangeAdd>();
+        public List<UserChanges.ChangeRemove> removeChanges = new List<UserChanges.ChangeRemove>();
+    }
+    
+    public class Sector : IDisposable
     {
         private Chunk[,] _chunks;
 
@@ -55,7 +63,8 @@ namespace DefaultNamespace
                     var heightNorm = Mathf.PerlinNoise((xPos / sectorSize) * noiseScale.x + noiseOffset.x, 
                         (zPos / sectorSize) * noiseScale.z + noiseOffset.y);
                     
-                    var yIndex = (int) Mathf.Floor(heightNorm * noiseScale.y * worldHeight);
+                    var yIndex = Mathf.FloorToInt(heightNorm * noiseScale.y * worldHeight);
+                    yIndex = Mathf.Clamp(yIndex, 0, worldHeight - 1);
                     
                     int chunkIdxX = Mathf.FloorToInt(x / (float) chunkSize);
                     int chunkIdxZ = Mathf.FloorToInt(z / (float) chunkSize);
@@ -105,7 +114,6 @@ namespace DefaultNamespace
                     chunk.SetNeighbours(chunkNeighbours);
                 }
             }
-
             
             // generate chunk geometry
             for (int chunkX = 0; chunkX < Chunks.GetLength(0); chunkX++)
@@ -115,8 +123,6 @@ namespace DefaultNamespace
                     var chunk = Chunks[chunkX, chunkZ];
                     
                     chunk.Generate();
-                    
-                    Bounds.Encapsulate(chunk.Bounds);
                 }
             } 
             
@@ -125,6 +131,19 @@ namespace DefaultNamespace
                                 + sectorSizeWS * 0.5f * Vector3.right 
                                 + sectorSizeWS * 0.5f * Vector3.forward, 
                 new Vector3(sectorSizeWS, worldHeight, sectorSizeWS));
+        }
+        
+        public void Dispose()
+        {
+            for (int chunkX = 0; chunkX < Chunks.GetLength(0); chunkX++)
+            {
+                for (int chunkZ = 0; chunkZ < Chunks.GetLength(1); chunkZ++)
+                {
+                    var chunk = Chunks[chunkX, chunkZ];
+                    
+                    chunk.Dispose();
+                }
+            }             
         }
     }
 }

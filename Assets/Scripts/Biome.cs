@@ -18,16 +18,11 @@ namespace DefaultNamespace
         {
             get => this._uvs;
         }
-
-        [SerializeField] private Sprite _uiSprite;
-        public Sprite UISprite
+        
+        [SerializeField] private float _timeToDestroy;
+        public float TimeToDestroy
         {
-            get => this._uiSprite;
+            get => this._timeToDestroy;
         }
-
-        
-        
-        
-        
     }
 }

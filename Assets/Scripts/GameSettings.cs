@@ -74,11 +74,20 @@ namespace DefaultNamespace
             get => this._voxelMaterial;
         }
 
+        [Tooltip("How far do we have to be in the sector (other than the center one) in order for new row / column to generate")]
+        [SerializeField] private float _sectorPosGenerateTreshold;
+        public float SectorPosGenerateTreshold
+        {
+            get => this._sectorPosGenerateTreshold;
+        }
+        
         private float _chunkSizeWS;
         /// <summary>
         /// // how large is chunk in meters
         /// </summary>
         public float ChunkSizeWS => _chunkSizeWS;
+
+        public float WorldHeightWs { get; private set; }
 
         [Tooltip("How many precision iterations is made when raycasting the world")]
         [SerializeField] private int _raycastPrecisionIterationCount;
@@ -86,10 +95,25 @@ namespace DefaultNamespace
         {
             get => this._raycastPrecisionIterationCount;
         }
+        
+        [Header("Other Controls")] 
+        [SerializeField]
+        private KeyCode _saveGameKey;
+        public KeyCode SaveGameKey
+        {
+            get => this._saveGameKey;
+        }
+
+        [SerializeField] private KeyCode _loadGameKey;
+        public KeyCode LoadGameKey
+        {
+            get => this._loadGameKey;
+        }
 
         private void OnEnable()
         {
             _chunkSizeWS = _chunkSize * _voxelSize;
+            WorldHeightWs = _worldHeight * _voxelSize;
         }
     }
 }

@@ -19,7 +19,7 @@ namespace DefaultNamespace
         {
             for (int i = 0; i < _biomeNormHeights.Count; i++)
             {
-                if (i + 1 == _biomeNormHeights.Count - 1 ||
+                if (i + 1 == _biomeNormHeights.Count ||
                     _biomeNormHeights[i + 1] > normHeight)
                     return _orderedBiomes[i];
             }

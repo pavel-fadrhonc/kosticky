@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using DefaultNamespace.Utils;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -6,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace DefaultNamespace
 {
-    public class Chunk
+    public class Chunk : IDisposable
     {
         public Vector3 WorldPos => _chunkWsPos;
 
@@ -87,11 +88,17 @@ namespace DefaultNamespace
         public bool GetRayHitInfo(Ray ray, out VoxelHitInfo hitInfo)
         {
             float startPointDist;
-            bool hit = Bounds.IntersectRay(ray, out startPointDist);
+            bool insideBounds = Bounds.Contains(ray.origin);
+            bool hit = Bounds.IntersectRay(ray, out startPointDist) || insideBounds;
             if (!hit)
             {
                 hitInfo = default;
                 return false;
+            }
+
+            if (insideBounds)
+            {
+                startPointDist = _voxelSize;
             }
 
             startPointDist *= 1.001f; // offset for rounding into chunk
@@ -104,7 +111,7 @@ namespace DefaultNamespace
             while (voxel == null)
             {
                 previousCheckPoint = nextCheckPoint;
-                nextCheckPoint = ray.origin + ray.direction * (startPointDist + checkIdx * _voxelSize);
+                nextCheckPoint = ray.origin + ray.direction * (startPointDist + checkIdx * _voxelSize * 0.5f);
                 
                 //DebugDraw.Sphere(nextCheckPoint, 0.1f);
                 
@@ -210,20 +217,28 @@ namespace DefaultNamespace
         {
             var voxelIdx = WorldPosToVoxelIdx(worldPos);
 
+            if (voxelIdx.x < 0 || voxelIdx.x > _chunkSize - 1 ||
+                voxelIdx.z < 0 || voxelIdx.z > _chunkSize - 1)
+                return null;
+            
             return VoxelInfoAtVoxelIdx(voxelIdx);
         }
 
         public void AddVoxelAtWorldPos(Vector3 worldPos, Biome biome)
         {
             var voxelIdx = WorldPosToVoxelIdx(worldPos);
+
+            if (voxelIdx.y >= _worldHeight)
+                return;
             
-            DrawVoxel(voxelIdx.x, voxelIdx.y, voxelIdx.z, biome);
+            var startingIndex = DrawVoxel(voxelIdx.x, voxelIdx.y, voxelIdx.z, biome);
             
             _voxels[voxelIdx.x, voxelIdx.y, voxelIdx.z] = new VoxelInfo()
             {
                 worldPos = VoxelIdxToWorldPos(new Vector3Int(voxelIdx.x, voxelIdx.y, voxelIdx.z)),
                 biome = biome,
-                isEnclosed = false
+                isEnclosed = false,
+                vertexStartIndex = startingIndex
             };
 
             if (voxelHeights[voxelIdx.x, voxelIdx.z] < voxelIdx.y)
@@ -601,6 +616,17 @@ namespace DefaultNamespace
         public override string ToString()
         {
             return $"Chunk {_thisChunkIdx}, {SectorInfo}";
+        }
+
+        public void Dispose()
+        {
+            GameObject.Destroy(_gameObject);
+        }
+        
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatic()
+        {
+            _chunkIdx = 0;   
         }
     }
 

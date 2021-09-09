@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using DefaultNamespace.Utils;
 using UnityEngine;
 
@@ -9,6 +10,7 @@ namespace DefaultNamespace
     {
         public event Action<EMode> ModeChangedEvent;
         public event Action<int> ActiveBiomeIdxChangedEvent;
+        public event Action<float> RemoveTimerUpdateEvent; // in normalized remove time;
         
         public enum EMode
         {
@@ -80,13 +82,30 @@ namespace DefaultNamespace
         private bool _jumping;
         private Vector3 _jumpVelocity;
 
+        private float RemoveTimer
+        {
+            get => _removeTimer;
+            set
+            {
+                _removeTimer = value;
+
+                float normalizedRemoveTime = 0f;
+                if (_voxelHitInfo.voxelInfo != null)
+                    normalizedRemoveTime = _removeTimer / _voxelHitInfo.voxelInfo.biome.TimeToDestroy;
+                
+                RemoveTimerUpdateEvent?.Invoke(normalizedRemoveTime);
+            }
+        }
+        private float _removeTimer;
+
         private EMode _mode;
         private int _activeBiomeIdx;
         private IReadOnlyList<Biome> _userBiomes;
         
         private bool _grounded;
-        private float _currentVoxelHeight;
+        //private float _currentVoxelHeight;
         private VoxelHitInfo _voxelHitInfo;
+        private float _standingVoxelTopY;
         private VoxelInfo _standingVoxelInfo;
 
         // references
@@ -97,6 +116,7 @@ namespace DefaultNamespace
 
         // constants
         private float _voxelSize;
+        private float _worldHeightWS;
 
         private void Start()
         {
@@ -105,6 +125,7 @@ namespace DefaultNamespace
             _worldManager = Locator.Instance.WorldManager;
 
             _voxelSize = Locator.Instance.GameSettings.VoxelSize;
+            _worldHeightWS = Locator.Instance.GameSettings.WorldHeightWs;
 
             _buildCube = Locator.Instance.BuildCube;
             _destroyCube = Locator.Instance.DestroyCube;
@@ -114,7 +135,7 @@ namespace DefaultNamespace
             ModeChangedEvent?.Invoke(_mode);
             ActiveBiomeIdxChangedEvent?.Invoke(_activeBiomeIdx);
             
-            RefreshVoxelHeight();
+            RefreshStandingVoxel();
         }
         
         private void Update()
@@ -130,20 +151,28 @@ namespace DefaultNamespace
             {
                 ActiveBiomeIdx = (ActiveBiomeIdx + 1) % _userBiomes.Count;
             }
-
-            if (Input.GetMouseButtonDown(0))
+            
+            if (_voxelHitInfo.voxelInfo != null)
             {
-                if (_voxelHitInfo.voxelInfo != null)
+                switch (Mode)
                 {
-                    switch (Mode)
-                    {
-                        case EMode.Build:
+                    case EMode.Build:
+                        if (Input.GetMouseButtonDown(0))
                             _worldManager.AddVoxelToWorldPos(_buildCube.Center, _userBiomes[ActiveBiomeIdx]);
-                            break;
-                        case EMode.Destroy:
+                        break;
+                    case EMode.Destroy:
+                        if (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0))
+                        {
+                            RemoveTimer += Time.deltaTime;
+                        }
+
+                        if (Input.GetMouseButtonUp(0))
+                            RemoveTimer = 0f;
+                        
+                        if (RemoveTimer > _voxelHitInfo.voxelInfo.biome.TimeToDestroy)
                             _worldManager.RemoveVoxelOnWorldPos(_destroyCube.Center);
-                            break;
-                    }
+                        
+                        break;
                 }
             }
  
@@ -179,8 +208,8 @@ namespace DefaultNamespace
             _moveVelocity = lookParent.right * (inputMovement.x * speed) +
                             correctedForward * (inputMovement.y * speed);
 
-            if (Mathf.Abs(inputMovement.x) > 0 || Mathf.Abs(inputMovement.y) > 0)
-                RefreshVoxelHeight();
+
+            RefreshStandingVoxel();
             
             #endregion
             
@@ -238,9 +267,9 @@ namespace DefaultNamespace
             transform.position = ResolveMovePosition(transform.position, nextPos);
             
             // adjust for falling
-            if (transform.position.y < _currentVoxelHeight)
+            if (transform.position.y < _standingVoxelTopY)
             {
-                transform.position = transform.position.WithY(_currentVoxelHeight); 
+                transform.position = transform.position.WithY(_standingVoxelTopY); 
                 _grounded = true;
             }
 
@@ -249,6 +278,8 @@ namespace DefaultNamespace
             #region AIM
 
             var aimRay = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0.5f));
+
+            //var rayOrigin = aimRay.origin - aimRay.direction * 10;
             
             Debug.DrawRay(aimRay.origin, aimRay.direction * 10);
 
@@ -265,8 +296,6 @@ namespace DefaultNamespace
             }
 
             #endregion
-
-
         }
 
         /// <summary>
@@ -280,88 +309,110 @@ namespace DefaultNamespace
         /// <returns></returns>
         private Vector3 ResolveMovePosition(Vector3 originalPosition, Vector3 targetPosition)
         {
-            var targetVoxelHeight = _worldManager.GeVoxelHeightAtWorldPos(targetPosition);
-            if (Mathf.Approximately(targetVoxelHeight, _currentVoxelHeight))
-                return targetPosition;
+            var targetStandingVoxel = GetStandingVoxelInfo(targetPosition);
+            bool falling = targetStandingVoxel == null;
+            Vector3 movePosition = targetPosition;
+
+            if (falling)
+            {
+                _grounded = false;
+            }
             else if (_jumping)
             {
-                var voxelAtTargetPos = _worldManager.GetVoxelAtWorldPos(targetPosition);
-                if (voxelAtTargetPos != null)
-                    return originalPosition.WithY(targetPosition.y);
+                if (targetPosition.y > _worldHeightWS)
+                    movePosition = targetPosition;
                 else
-                    return targetPosition;
-            }
-            else if (targetVoxelHeight <= _currentVoxelHeight + _voxelSize && targetVoxelHeight > _currentVoxelHeight)
-            { // one voxel high step, we can climb that
-                _currentVoxelHeight = targetVoxelHeight;
-                return targetPosition.WithY(targetVoxelHeight);
-            }
-            else if (targetVoxelHeight < _currentVoxelHeight)
-            { // we're falling
-                _currentVoxelHeight = targetVoxelHeight;
-                _grounded = false;
-                return targetPosition;
+                {
+                    var voxelAtTargetPos = _worldManager.GetVoxelAtWorldPos(targetPosition);
+                    if (voxelAtTargetPos != null)
+                        movePosition = originalPosition.WithY(targetPosition.y);
+                    else
+                        movePosition = targetPosition;
+                }
             }
             else
-            { // even higher step, we can't climb that but it's possible that there is a hole, so we need to check for it
-                var potentialMovePos = targetPosition + Vector3.up * (_voxelSize 
-                                                                      * 1.01f); // we want to leave room for one voxel that we can actually climb
-                Vector3 checkPosition = potentialMovePos; 
-                VoxelInfo voxelInfo = null;
-                while (checkPosition.y < lookParent.transform.position.y)
-                {
-                    voxelInfo = _worldManager.GetVoxelAtWorldPos(checkPosition);
-                    if (voxelInfo != null)
-                        break;
-                    
-                    checkPosition += Vector3.up *_voxelSize;
-                }
+            { // grounded movement
+                var targetInsideVoxel = _worldManager.GetVoxelAtWorldPos(targetPosition + Vector3.up * 0.1f);
 
-                if (voxelInfo == null)
-                { // there is indeed a hole
-                    return potentialMovePos;
-                }
+                if (targetInsideVoxel == null)
+                    movePosition = targetPosition;
+
                 else
                 {
-                    return originalPosition.WithY(targetPosition.y);
-                    
-                    // there is two or more voxel high wall and we can't climb that but want to slide on walls
-                    Vector3 slidePosition;
-                    Vector3 planeNormal = Vector3.right; // aiming into voxel
+                    var oneVoxelUp = _worldManager.GetVoxelAtWorldPos(targetPosition + Vector3.up * (0.1f + _voxelSize));
+                    if (oneVoxelUp == null)
+                    { // one voxel high step, we can climb that
+                        _standingVoxelTopY = targetInsideVoxel.worldPos.y + _voxelSize;
+                        movePosition = targetPosition.WithY(_standingVoxelTopY);
+                    }
+                    else
+                    {
+                        movePosition = originalPosition.WithY(targetPosition.y);
+                        
+                        //there is two or more voxel high wall and we can't climb that but want to slide on walls
+                        // Vector3 slidePosition;
+                        // Vector3 planeNormal = Vector3.right; // aiming into voxel
+                        //
+                        // if (targetPosition.x < _standingVoxelInfo.worldPos.x)
+                        // {
+                        //     planeNormal = Vector3.right;
+                        // }
+                        // else if (targetPosition.x > _standingVoxelInfo.worldPos.x + _voxelSize)
+                        // {
+                        //     planeNormal = Vector3.left;
+                        // }
+                        // else if (targetPosition.z < _standingVoxelInfo.worldPos.z)
+                        // {
+                        //     planeNormal = Vector3.forward;
+                        // }
+                        // else if (targetPosition.z > _standingVoxelInfo.worldPos.z + _voxelSize)
+                        // {
+                        //     planeNormal = Vector3.back;
+                        // }
+                        //
+                        // slidePosition = Vector3.ProjectOnPlane((targetPosition - originalPosition).WithY(0), planeNormal) + targetPosition;
+                        // slidePosition += planeNormal * 0.01f;
+                        //
+                        // //DebugDraw.Sphere(slidePosition, 0.1f, Color.red);
+                        // Debug.DrawLine(targetPosition, slidePosition, Color.red);
+                        //
+                        // return ResolveMovePosition(originalPosition, slidePosition);
+                    }                    
+                }
+            }
 
-                    if (targetPosition.x < _standingVoxelInfo.worldPos.x)
-                    {
-                        planeNormal = Vector3.right;
-                    }
-                    else if (targetPosition.x > _standingVoxelInfo.worldPos.x + _voxelSize)
-                    {
-                        planeNormal = Vector3.left;
-                    }
-                    else if (targetPosition.z < _standingVoxelInfo.worldPos.z)
-                    {
-                        planeNormal = Vector3.forward;
-                    }
-                    else if (targetPosition.z > _standingVoxelInfo.worldPos.z + _voxelSize)
-                    {
-                        planeNormal = Vector3.back;
-                    }
-                    
-                    slidePosition = Vector3.ProjectOnPlane((targetPosition - originalPosition).WithY(0), planeNormal) + targetPosition;
-                    slidePosition += planeNormal * 0.01f;
+            // check for the head
+            // VoxelInfo voxelAtHead = null;
+            // if (lookParent.transform.position.y < _worldHeightWS)
+            //     voxelAtHead = _worldManager.GetVoxelAtWorldPos(lookParent.transform.position);
+            // if (voxelAtHead != null)
+            //     movePosition = movePosition.WithY(originalPosition.y);
 
-                    //DebugDraw.Sphere(slidePosition, 0.1f, Color.red);
-                    Debug.DrawLine(targetPosition, slidePosition, Color.red);
-                    
-                    return ResolveMovePosition(originalPosition, slidePosition);
+            return movePosition;
+        }
+        
+        private void RefreshStandingVoxel()
+        {
+            //_currentVoxelHeight = _worldManager.GeVoxelWSHeightAtWorldPos(transform.position);
+            if (transform.position.y < _worldHeightWS)
+            {
+                _standingVoxelInfo = GetStandingVoxelInfo(transform.position);
+                if (_standingVoxelInfo != null)
+                    _standingVoxelTopY = _standingVoxelInfo.worldPos.y + _voxelSize;
+                else
+                {
+                    _standingVoxelTopY = 0f;
+                    _grounded = false;
                 }
             }
         }
-        
-        private void RefreshVoxelHeight()
+
+        private VoxelInfo GetStandingVoxelInfo(Vector3 standingPos)
         {
-            _currentVoxelHeight = _worldManager.GeVoxelHeightAtWorldPos(transform.position);
-            _standingVoxelInfo = _worldManager.GetVoxelAtWorldPos(transform.position + Vector3.down * 0.01f);
-            _grounded = false;
+            if (standingPos.y < _worldHeightWS &&standingPos.y > 0)
+                return _worldManager.GetVoxelAtWorldPos(standingPos + Vector3.down * 0.01f);
+
+            return null;
         }
 
         private void DetectAndDrawBuildVertex(Ray ray)
@@ -373,6 +424,16 @@ namespace DefaultNamespace
             {
                 return;
             }
+
+            var isPosFree = _worldManager.GetVoxelAtWorldPos(
+                _voxelHitInfo.voxelInfo.worldPos 
+                + Vector3.right * (_voxelSize * 0.5f)
+                + Vector3.forward * (_voxelSize * 0.5f)
+                + Vector3.up * (_voxelSize * 0.5f)
+                + _voxelHitInfo.normal * (_voxelSize * 1f)) == null;
+            
+            if(!isPosFree)
+                return;
             
             _buildCube.Enabled = true;
             _buildCube.SetPosition(_voxelHitInfo.voxelInfo.worldPos + _voxelHitInfo.normal * _voxelSize);
@@ -380,13 +441,19 @@ namespace DefaultNamespace
         
         private void DetectAndDrawDestroyVertex(Ray ray)
         {
+            var previousVoxelInfo = _voxelHitInfo.voxelInfo;
+            
             _voxelHitInfo.voxelInfo = null;
             var hit = _worldManager.GetVoxelRayIntersection(ray, out _voxelHitInfo, maxDestroyDistance);
 
             if (!hit)
             {
+                RemoveTimer = 0f;
                 return;
             }
+
+            if (_voxelHitInfo.voxelInfo != previousVoxelInfo)
+                RemoveTimer = 0f;
             
             _destroyCube.Enabled = true;
             _destroyCube.SetPosition(_voxelHitInfo.voxelInfo.worldPos);

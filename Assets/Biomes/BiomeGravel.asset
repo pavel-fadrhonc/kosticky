@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _startsFromHeightNorm: 0.2
   _uvs: {x: 0.33333334, y: 0.6666667}
-  _uiSprite: {fileID: 0}
+  _timeToDestroy: 0.8
